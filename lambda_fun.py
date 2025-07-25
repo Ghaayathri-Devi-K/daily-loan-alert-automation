@@ -84,7 +84,7 @@ Stay strong — your future self will thank you! 💪💙
 
     # SNS
     sns_client = boto3.client('sns')
-    topic_arn = 'arn:aws:sns:us-east-2:489335433975:daily-education-loan-alert'
+    topic_arn = 'YOUR_SNS_ARN'
     sns_client.publish(
         TopicArn=topic_arn,
         Subject='🌟 Daily Education Loan Alert',
@@ -92,9 +92,9 @@ Stay strong — your future self will thank you! 💪💙
     )
 
     # Your bot token
-    bot_token = '8457299044:AAEskcvCzDmSKlpnycmcn9uMd5shC16oGIM'
+    bot_token = 'YOUR TELEGRAM BOT TOKEN'
     # Your chat ID
-    chat_id = '1881510446'
+    chat_id = 'YOUR TELEGRAM BOT CHAT ID'
 
     # Your message (reuse the same `message` you send via SNS)
     telegram_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
