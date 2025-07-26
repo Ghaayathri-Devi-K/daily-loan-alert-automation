@@ -5,6 +5,157 @@ It reads my Google Sheet disbursement data, scrapes the latest SBI EBR, calculat
 
 ---
 
+### 🗂️ System Architecture  
+The complete system:  
+1️⃣ EventBridge → 2️⃣ Lambda → 3️⃣ Google Sheets & SBI EBR → 4️⃣ SNS → 5️⃣ Email & Telegram Bot — fully serverless and automated!
+
+<img width="1131" height="968" alt="image" src="https://github.com/user-attachments/assets/9ff61b17-4b7b-4d7b-af60-1795a14d5ccb" />
+
+---
+
+## ⚙️ How It Works
+
+1. 📅 Disbursement data → Google Sheets
+2. ⏰ Scheduled trigger → EventBridge
+3. 🧩 Lambda → reads data & scrapes EBR
+4. 📣 SNS → Email & Telegram
+
+---
+
+## 🧩 System Design Details
+
+### 1️⃣ Requirements
+
+**Functional Requirements:**
+- 🗂️ Fetch disbursement data from a Google Sheet.
+- 🔍 Scrape the live External Benchmark Rate (EBR) daily.
+- 🔄 Calculate daily interest based on total disbursed amount and current EBR.
+- 📤 Send daily interest updates to:
+  - 📧 Email (via AWS SNS)
+  - 💬 Telegram Bot
+- 🗓️ Run automatically every day at a fixed time.
+
+**Non-Functional Requirements:**
+- ✅ **High reliability** — Must run daily without fail.
+- 💸 **Cost-effective** — Should stay within free tier/serverless.
+- 🛡️ **Secure** — Google Sheets API keys and credentials must be protected.
+- 📈 **Scalable** — Support multiple delivery channels (Email, Telegram, future Slack/WhatsApp).
+- 🔒 **Idempotent** — Running multiple times should not create duplicate/conflicting data.
+
+---
+
+### 2️⃣ Capacity Estimation
+
+- 📊 **Daily Active Users (DAU)**: 1 (Me!)
+- 🚀 **Throughput**: 1 Lambda invocation/day, 1 SNS publish, 1 web scrape, 1 Google Sheets API call.
+- 💾 **Storage**:  
+  - Google Sheet: Tiny (~few KB).
+  - No DB yet — can migrate to DynamoDB/RDS if scaling.
+- 🌐 **Network/Bandwidth**:  
+  - Google Sheets API + Web scrape call.
+  - SNS sends 1–2 messages daily.
+
+---
+
+### 3️⃣ API Design
+
+- ✅ Uses:
+  - Google Sheets API (`gspread` + service account, OAuth2)
+  - HTTP GET to SBI website (scraper)
+  - AWS SNS Publish API
+  - Telegram Bot API (HTTP POST)
+
+---
+
+### 4️⃣ High-Level Design
+
+**Architecture highlights:**
+- **Trigger:** AWS EventBridge cron rule.
+- **Compute:** AWS Lambda.
+- **Data Source:** Google Sheets.
+- **Web Scraping:** SBI EBR page.
+- **Message Queue:** SNS.
+- **Delivery:** Email & Telegram Bot.
+
+---
+
+### 5️⃣ Deep Dive
+
+**Storage Platform:**  
+- Google Sheets → Lightweight pseudo-database for disbursement tracking.
+(Could migrate to DynamoDB/RDS for scaling, query history, analytics)
+
+**Message Queue:**  
+- SNS → decouples compute(lambda) from notifications.
+- Multiple subscribers (Email & Telegram) → classic fan-out.
+
+**Caching:**  
+By default, this project does not use a caching layer, because the EBR (External Benchmark Rate) rarely changes — most banks revise it only once a month when the RBI repo rate changes. For personal or small-scale usage, scraping SBI’s EBR daily works fine and costs nothing extra. However, if you want to make your system more robust and efficient, you can add a cache using DynamoDB with a Time To Live (TTL).
+```bash
+✅ Lambda checks DynamoDB for the latest EBR	
+⚡ If found and not expired → use cached EBR	
+🔄 If not found/expired → scrape SBI → store new EBR with TTL (~30 days)
+```
+
+**Monitoring & Logging:**  
+- AWS CloudWatch logs for Lambda.
+
+**Cloud:**  
+- 100% serverless → EventBridge + Lambda + SNS.
+- Scales automatically, no servers to manage.
+
+---
+
+### ✅ Key Design Goals
+
+- **Scalability:** Serverless + pub/sub → easily add more channels.
+- **Availability:** Lambda + EventBridge = highly reliable.
+- **Consistency:** Live EBR + current disbursement → daily accurate snapshot.
+- **Fault Tolerance:** Lambda retries, CloudWatch logs errors, SNS guarantees at least-once delivery.
+
+---
+
+### 🌐 Key Networking Concepts
+
+- **IP Address & DNS:** Lambda makes outbound HTTPS calls to Google Sheets API & SBI website.
+- **Client & Server:**  
+  - Lambda = client to Google Sheets API, SBI website, Telegram Bot API.
+- **Protocols:**  
+  - HTTPS for all external calls.
+  - AWS internal APIs for SNS publish.
+
+---
+
+### 📨 Key Communication Concepts
+
+- **API:**  
+  - RESTful → Google Sheets, Telegram Bot.
+- **Message Queue:**  
+  - SNS → fan-out → Email + Telegram Bot subscribers.
+
+---
+
+### 🗄️ Key Storage Concepts
+ Google Sheets is the “DB”.
+.
+
+---
+
+### 🛡️ Logging & Monitoring
+
+- **Logs:** AWS CloudWatch for Lambda execution.
+- **Monitoring:** Add CloudWatch Alarms for failures.
+- **Audit:** Use CloudTrail if expanded.
+
+---
+
+### ⚖️ CAP Theorem
+
+- ✅ **Consistency:** Uses fresh EBR + latest disbursement.
+- ✅ **Availability:** Runs daily, serverless.
+- (Partition Tolerance not directly relevant here.)
+
+---
 ## 📸 **Demo — Visual Flow**
 
 Below is a simple step-by-step walkthrough of how it works:
@@ -69,14 +220,6 @@ The same daily update lands instantly on my Telegram via a custom bot — so I n
 
 ---
 
-### 🗂️ Full Architecture  
-The complete system:  
-1️⃣ EventBridge → 2️⃣ Lambda → 3️⃣ Google Sheets & SBI EBR → 4️⃣ SNS → 5️⃣ Email & Telegram Bot — fully serverless and automated!
-
-<img width="1131" height="968" alt="image" src="https://github.com/user-attachments/assets/9ff61b17-4b7b-4d7b-af60-1795a14d5ccb" />
-
-
----
 
 ## 📦 **Requirements**
 
@@ -133,6 +276,15 @@ This project is licensed under the **MIT License** — feel free to fork, adapt,
 
 ---
 
-💙 Built for personal accountability.
+
+---
+
+### 🚀 Why This Matters
+
+This small project shows how **serverless + event-driven design + external data APIs** can automate a real-life financial task — while being easy to maintain, cheap to run, and ready to scale or extend.  
+
+---
+
+**💙 Built to motivate myself (and anyone!) to pay off student loans wisely — one day at a time.**
 Let’s connect on [LinkedIn](https://www.linkedin.com/in/ghaayathri-devi-k-21089b231/) if you liked this! 🚀✨
 
